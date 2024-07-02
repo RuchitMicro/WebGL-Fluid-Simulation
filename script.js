@@ -57,29 +57,29 @@ const canvas = document.getElementsByTagName('canvas')[0];
 resizeCanvas();
 
 let config = {
-    SIM_RESOLUTION: 128,
+    SIM_RESOLUTION: 256,
     DYE_RESOLUTION: 1024,
     CAPTURE_RESOLUTION: 512,
-    DENSITY_DISSIPATION: 1,
-    VELOCITY_DISSIPATION: 0.2,
-    PRESSURE: 0.8,
+    DENSITY_DISSIPATION: 0,
+    VELOCITY_DISSIPATION: 4,
+    PRESSURE: 1,
     PRESSURE_ITERATIONS: 20,
-    CURL: 30,
+    CURL: 0,
     SPLAT_RADIUS: 0.25,
-    SPLAT_FORCE: 6000,
+    SPLAT_FORCE: 60000,
     SHADING: true,
     COLORFUL: true,
     COLOR_UPDATE_SPEED: 10,
     PAUSED: false,
     BACK_COLOR: { r: 0, g: 0, b: 0 },
     TRANSPARENT: false,
-    BLOOM: true,
+    BLOOM: false,
     BLOOM_ITERATIONS: 8,
     BLOOM_RESOLUTION: 256,
     BLOOM_INTENSITY: 0.8,
     BLOOM_THRESHOLD: 0.6,
     BLOOM_SOFT_KNEE: 0.7,
-    SUNRAYS: true,
+    SUNRAYS: false,
     SUNRAYS_RESOLUTION: 196,
     SUNRAYS_WEIGHT: 1.0,
 }
@@ -219,7 +219,8 @@ function startGUI () {
     gui.add(config, 'PAUSED').name('paused').listen();
 
     gui.add({ fun: () => {
-        splatStack.push(parseInt(Math.random() * 20) + 5);
+        // splatStack.push(parseInt(Math.random() * 20) + 5);
+        splatStack.push(parseInt(200) + 5);
     } }, 'fun').name('Random splats');
 
     let bloomFolder = gui.addFolder('Bloom');
@@ -1167,7 +1168,8 @@ function updateKeywords () {
 
 updateKeywords();
 initFramebuffers();
-multipleSplats(parseInt(Math.random() * 20) + 5);
+// multipleSplats(parseInt(Math.random() * 20) + 5);
+multipleSplats(200);
 
 let lastUpdateTime = Date.now();
 let colorUpdateTimer = 0.0;
@@ -1438,7 +1440,22 @@ function multipleSplats (amount) {
     }
 }
 
-function splat (x, y, dx, dy, color) {
+// function splat (x, y, dx, dy, color) {
+//     splatProgram.bind();
+//     gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
+//     gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
+//     gl.uniform2f(splatProgram.uniforms.point, x, y);
+//     gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0);
+//     gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100.0));
+//     blit(velocity.write);
+//     velocity.swap();
+
+//     gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
+//     gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
+//     blit(dye.write);
+//     dye.swap();
+// }
+function splat(x, y, dx, dy, color) {
     splatProgram.bind();
     gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
     gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
@@ -1450,6 +1467,12 @@ function splat (x, y, dx, dy, color) {
 
     gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
     gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
+    blit(dye.write);
+
+    // Apply the white center
+    let centerColor = generateCenterColor();
+    gl.uniform3f(splatProgram.uniforms.color, centerColor.r, centerColor.g, centerColor.b);
+    gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 400.0)); // Smaller radius for the white center
     blit(dye.write);
     dye.swap();
 }
@@ -1562,15 +1585,25 @@ function correctDeltaY (delta) {
     return delta;
 }
 
-function generateColor () {
-    let c = HSVtoRGB(Math.random(), 1.0, 1.0);
-    c.r *= 0.15;
-    c.g *= 0.15;
-    c.b *= 0.15;
-    return c;
-}
+// function generateColor () {
+//     let c = HSVtoRGB(Math.random(), 1.0, 1.0);
+//     c.r *= 0.15;
+//     c.g *= 0.15;
+//     c.b *= 0.15;
+//     return c;
+// }
 
-function HSVtoRGB (h, s, v) {
+function generateColor() {
+    // Generate a cool grey color for a liquid metal effect
+    let v = Math.random() * 0.3 + 0.2; // Varying brightness for a cool grey, between 0.2 and 0.5
+
+    return {
+        r: v,
+        g: v,
+        b: v
+    };
+}
+function HSVtoRGB(h, s, v) {
     let r, g, b, i, f, p, q, t;
     i = Math.floor(h * 6);
     f = h * 6 - i;
@@ -1593,6 +1626,39 @@ function HSVtoRGB (h, s, v) {
         b
     };
 }
+function generateCenterColor() {
+    return {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0
+    };
+}
+
+// function HSVtoRGB (h, s, v) {
+//     let r, g, b, i, f, p, q, t;
+//     i = Math.floor(h * 6);
+//     f = h * 6 - i;
+//     p = v * (1 - s);
+//     q = v * (1 - f * s);
+//     t = v * (1 - (1 - f) * s);
+
+//     switch (i % 6) {
+//         case 0: r = v, g = t, b = p; break;
+//         case 1: r = q, g = v, b = p; break;
+//         case 2: r = p, g = v, b = t; break;
+//         case 3: r = p, g = q, b = v; break;
+//         case 4: r = t, g = p, b = v; break;
+//         case 5: r = v, g = p, b = q; break;
+//     }
+
+//     return {
+//         r,
+//         g,
+//         b
+//     };
+// }
+
+
 
 function normalizeColor (input) {
     let output = {
